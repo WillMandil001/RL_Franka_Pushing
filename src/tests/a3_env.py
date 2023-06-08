@@ -10,8 +10,6 @@ d = mujoco.MjData(m)
 mujoco.mj_step(m, d)
 
 print([m.geom(i).name for i in range(m.ngeom)])
-print(m.geom("ball_object_pushing"))
-
 print("d.qpos: ", d.qpos)
 
 with mujoco.viewer.launch_passive(m, d) as viewer:

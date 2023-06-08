@@ -4,6 +4,8 @@
   <include file="panda_actuator.xml"/>
   <include file="panda_assets.xml"/>
 
+  <include file="d435i_assets.xml"/>
+
   <visual>
     <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
     <rgba haze="0.15 0.25 0.35 1"/>
@@ -25,22 +27,35 @@
 
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
-    <light pos="0.3 0 1.5" dir="0 0 -1" directional="true"/>
+    <light pos="0 1.5 1.5" dir="0 0 -1" directional="true"/>
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
 
+    <!-- Robot - Franka Panda -->
     <body pos='0.185 0.51 0.92' euler='0 0 0'>
         <include file="panda_body.xml"/>
     </body>
 
+    <!-- INB0104 robot workspace -->
     <body pos='0 0 0' euler='0 0 0'>
         <include file="workbench.xml"/>
     </body>
 
-    <body name="ball_object_pushing" pos="0.8 0.5 1.2">
+    <!-- target object -->
+    <!-- <body name="ball_object_pushing" pos="0.8 0.5 1.2">
       <freejoint name="ball"/>
       <geom name="ball_object_pushing" type="sphere" group="0" size="0.05" material="ball_object_pushing" priority="1" condim="6" friction=".7 .005 .005" solref="-10000 -30"/>
-    </body>
+    </body> -->
+    <!-- <body name="target_object" pos="0.8 0.5 1.2"> -->
+      <!-- <freejoint name="target"/> -->
+      <!-- <geom name="target_object" type="box" size="0.02 0.02 0.02" rgba="0.95294117647 0.23921568627 0.23921568627 1.0"/> -->
+    <!-- </body> -->
 
+    <!-- Camera -->
+    <body pos='0.655 1.02 1.4' euler='2.35619 0 0'>
+      <include file="d435i_body.xml"/>
+    </body>
+    <camera name='side_camera' pos='0.63 1.01 1.38' euler='-0.6 0 3.14159' mode="fixed" fovy="57"/>  
+  
   </worldbody>
 
   <keyframe>
