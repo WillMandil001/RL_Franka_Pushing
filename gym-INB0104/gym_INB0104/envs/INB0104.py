@@ -16,8 +16,6 @@ class INB0104Env(MujocoEnv, utils.EzPickle):
         MujocoEnv.__init__( self, "/home/willow/Robotics/RL_Franka_Pushing/environments/INB0104/Robot_C.xml", 2, observation_space=observation_space, default_camera_config=DEFAULT_CAMERA_CONFIG, **kwargs,)
 
     def step(self, a):
-        print(self.get_body_com("hand"))
-        print(self.get_body_com("target_object"))
         vec = self.get_body_com("hand") - self.get_body_com("target_object")
         reward_dist = -np.linalg.norm(vec)
         reward_ctrl = -np.square(a).sum()
@@ -31,7 +29,7 @@ class INB0104Env(MujocoEnv, utils.EzPickle):
         return ( ob, reward, False, False, dict(reward_dist=reward_dist, reward_ctrl=reward_ctrl))
 
     def reset_model(self):
-        qpos = (self.np_random.uniform(low=-0.1, high=0.1, size=self.model.nq) + self.init_qpos)
+        qpos = ( self.np_random.uniform(low=-0.1, high=0.1, size=self.model.nq) + self.init_qpos)
         while True:
             self.goal = self.np_random.uniform(low=-0.2, high=0.2, size=2)
             if np.linalg.norm(self.goal) < 0.2:
@@ -43,10 +41,5 @@ class INB0104Env(MujocoEnv, utils.EzPickle):
         return self._get_obs()
 
     def _get_obs(self):
-        theta = self.sim.data.qpos.flat[:2]
-        return np.concatenate([ np.cos(theta), np.sin(theta), self.sim.data.qpos.flat[2:], self.sim.data.qvel.flat[:2], self.get_body_com("fingertip") - self.get_body_com("target") ])
-
-
-
-
-
+        theta = self.data.qpos.flat[:2]
+        return np.concatenate([np.cos(theta),np.sin(theta),self.data.qpos.flat[2:],self.data.qvel.flat[:2],self.get_body_com("hand") - self.get_body_com("target_object") ] )
