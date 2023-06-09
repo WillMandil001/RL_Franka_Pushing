@@ -45,9 +45,9 @@
       <freejoint name="ball"/>
       <geom name="ball_object_pushing" type="sphere" group="0" size="0.05" material="ball_object_pushing" priority="1" condim="6" friction=".7 .005 .005" solref="-10000 -30"/>
     </body> -->
-    <body name="target_object" pos="0.8 0.5 1.2">
+    <body name="target_object" pos="0.655 0.515 1.0">
       <freejoint name="target"/>
-      <geom name="target_object" type="box" size="0.02 0.02 0.02" rgba="0.95294117647 0.23921568627 0.23921568627 1.0"/>
+      <geom name="target_object" type="box" size="0.04 0.02 0.02" rgba="0.95294117647 0.23921568627 0.23921568627 1.0"/>
     </body>
 
     <!-- Camera -->

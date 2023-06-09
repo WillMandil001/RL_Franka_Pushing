@@ -18,9 +18,11 @@ def main():
     # render the environment
     env.render()
     
-    for i in range(1000):
-        env.step(env.action_space.sample())
-        env.render()
+    for j in range(10):
+        for i in range(100):
+            env.step(env.action_space.sample())
+            env.render()
+        env.reset()
 
     # step the environment
     # env.step(env.action_space.sample())

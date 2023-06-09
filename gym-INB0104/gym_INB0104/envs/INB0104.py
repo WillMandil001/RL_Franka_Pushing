@@ -17,10 +17,11 @@ class INB0104Env(MujocoEnv, utils.EzPickle):
         self.render_mode = "human"
 
     def step(self, a):
-        vec = self.get_body_com("hand") - self.get_body_com("target_object")
+        vec = self.get_body_com("left_finger") - self.get_body_com("target_object")
         reward_dist = -np.linalg.norm(vec)
         reward_ctrl = -np.square(a).sum()
         reward = reward_dist + reward_ctrl
+        # print("left_finger: {}  vec: {}  reward_dist: {:.4f}  reward_ctrl: {:.1f}  reward: {:.1f}".format(self.get_body_com("left_finger"), vec, reward_dist, reward_ctrl, reward))
 
         self.do_simulation(a, self.frame_skip)
         if self.render_mode == "human":
@@ -30,17 +31,30 @@ class INB0104Env(MujocoEnv, utils.EzPickle):
         return ( ob, reward, False, False, dict(reward_dist=reward_dist, reward_ctrl=reward_ctrl))
 
     def reset_model(self):
-        qpos = ( self.np_random.uniform(low=-0.1, high=0.1, size=self.model.nq) + self.init_qpos)
+        # set up random initial state for the robot - but keep the fingers and target object in place
+        qpos = np.array([0, 0, 0, -1.57079, 0, 1.57079, -0.7853, 0.04, 0.04, 0.655, 0.515, 1.0, 0, 0, 0, 1])
+        qpos[0] += self.np_random.uniform(low=-1, high=1)
+        qpos[1] += self.np_random.uniform(low=-1, high=1)
+        qpos[2] += self.np_random.uniform(low=-1, high=1)
+        qpos[3] += self.np_random.uniform(low=-1, high=1)
+        qpos[4] += self.np_random.uniform(low=-1, high=1)
+        qpos[5] += self.np_random.uniform(low=-1, high=1)
+        qpos[6] += self.np_random.uniform(low=-1, high=1)
+
+        # qpos = ( self.np_random.uniform(low=-0.4, high=0.4, size=self.model.nq) + self.init_qpos)
+
+        # create random x and y position for the target object, but make sure it is within a 1 meter circle -- this bit maybe useful later - not for now though
         while True:
-            self.goal = self.np_random.uniform(low=-0.2, high=0.2, size=2)
-            if np.linalg.norm(self.goal) < 0.2:
+            self.goal = self.np_random.uniform(low=-0.25, high=0.25, size=2)
+            if np.linalg.norm(self.goal) < 1.0:
                 break
-        qpos[-2:] = self.goal
+        qpos[9:11] += self.goal
         qvel = self.init_qvel + self.np_random.uniform(low=-0.005, high=0.005, size=self.model.nv)
-        qvel[-2:] = 0
+        qvel[9:11] = 0
         self.set_state(qpos, qvel)
         return self._get_obs()
 
     def _get_obs(self):
         theta = self.data.qpos.flat[:2]
-        return np.concatenate([np.cos(theta),np.sin(theta),self.data.qpos.flat[2:],self.data.qvel.flat[:2],self.get_body_com("hand") - self.get_body_com("target_object") ] )
+        return np.concatenate([np.cos(theta),np.sin(theta),self.data.qpos.flat[2:],self.data.qvel.flat[:2],self.get_body_com("left_finger") - self.get_body_com("target_object") ] )
+
