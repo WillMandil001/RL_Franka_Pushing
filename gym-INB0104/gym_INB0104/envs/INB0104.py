@@ -14,6 +14,7 @@ class INB0104Env(MujocoEnv, utils.EzPickle):
         utils.EzPickle.__init__(self, **kwargs)
         observation_space = Box(low=-np.inf, high=np.inf, shape=(11,), dtype=np.float64)
         MujocoEnv.__init__( self, "/home/willow/Robotics/RL_Franka_Pushing/environments/INB0104/Robot_C.xml", 2, observation_space=observation_space, default_camera_config=DEFAULT_CAMERA_CONFIG, **kwargs,)
+        self.render_mode = "human"
 
     def step(self, a):
         vec = self.get_body_com("hand") - self.get_body_com("target_object")

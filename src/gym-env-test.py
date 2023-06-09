@@ -12,13 +12,18 @@ def main():
     print("Action space:", env.action_space)
 
     # reset the environment
-    env.reset_model()
+    # env.reset_model()
+    data = env.reset()
 
     # render the environment
     env.render()
+    
+    for i in range(1000):
+        env.step(env.action_space.sample())
+        env.render()
 
     # step the environment
-    env.step(env.action_space.sample())
+    # env.step(env.action_space.sample())
 
 
 if __name__ == "__main__":
