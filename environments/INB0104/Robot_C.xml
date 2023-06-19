@@ -45,16 +45,16 @@
       <freejoint name="ball"/>
       <geom name="ball_object_pushing" type="sphere" group="0" size="0.05" material="ball_object_pushing" priority="1" condim="6" friction=".7 .005 .005" solref="-10000 -30"/>
     </body> -->
-    <body name="target_object" pos="0.655 0.515 1.0">
+    <body name="target_object" pos="0.655 0.515 0.9">
       <freejoint name="target"/>
       <geom name="target_object" type="box" size="0.04 0.02 0.02" rgba="0.95294117647 0.23921568627 0.23921568627 1.0"/>
     </body>
 
     <!-- Camera -->
-    <body pos='0.655 1.02 1.4' euler='2.35619 0 0'>
+    <body pos='0.655 1.02 1.8' euler='2.35619 0 0'>
       <include file="d435i_body.xml"/>
     </body>
-    <camera name='side_camera' pos='0.63 1.01 1.38' euler='-0.6 0 3.14159' mode="fixed" fovy="57"/>  
+    <camera name='side_camera' pos='0.63 1.01 1.78' euler='-0.5 0 3.14159' mode="fixed" fovy="57"/>  
   
   </worldbody>
 
