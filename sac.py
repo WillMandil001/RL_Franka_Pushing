@@ -77,23 +77,24 @@ class MultiCritic(nn.Module):
 
   def __init__(
       self,
-      repr_dim,
+      emb_dim,
       feature_dim,
+      state_dim,
       action_dim,
       hidden_dim,
       hidden_depth,
   ):
     super().__init__()
 
-    self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
+    self.trunk = nn.Sequential(nn.Linear(emb_dim, feature_dim),
                                    nn.LayerNorm(feature_dim), nn.Tanh())
 
-    self.critic1 = Critic(feature_dim, action_dim, hidden_dim, hidden_depth)
-    self.critic2 = Critic(feature_dim, action_dim, hidden_dim, hidden_depth)
+    self.critic1 = Critic(feature_dim + state_dim, action_dim, hidden_dim, hidden_depth)
+    self.critic2 = Critic(feature_dim + state_dim, action_dim, hidden_dim, hidden_depth)
 
-  def forward(self, obs, action):
-    obs = self.trunk(obs)
-    obs_action = torch.cat([obs, action], dim=-1)
+  def forward(self, emb, state, action):
+    emb = self.trunk(emb)
+    obs_action = torch.cat([emb, state, action], dim=-1)
     return self.critic1(obs_action), self.critic2(obs_action)
 
 """## Squashed Normal"""
@@ -123,8 +124,9 @@ class DiagGaussianActor(nn.Module):
 
   def __init__(
       self,
-      repr_dim,
+      emb_dim,
       feature_dim,
+      state_dim,
       action_dim,
       hidden_dim,
       hidden_depth,
@@ -133,14 +135,15 @@ class DiagGaussianActor(nn.Module):
     super().__init__()
 
     self.log_std_bounds = log_std_bounds
-    self.trunk = self.trunk = nn.Sequential(nn.Linear(repr_dim, feature_dim),
+    self.trunk = self.trunk = nn.Sequential(nn.Linear(emb_dim, feature_dim),
                                    nn.LayerNorm(feature_dim), nn.Tanh())
-    self.policy = mlp(feature_dim, hidden_dim, 2 * action_dim, hidden_depth, dropout=0.00)
+    self.policy = mlp(feature_dim + state_dim, hidden_dim, 2 * action_dim, hidden_depth, dropout=0.00)
 
     self.apply(orthogonal_init)
 
-  def forward(self, obs):
-    obs = self.trunk(obs)
+  def forward(self, emb, state):
+    emb = self.trunk(emb)
+    obs = torch.cat([emb, state], dim=-1)
     mu, log_std = self.policy(obs).chunk(2, dim=-1)
 
     # Constrain log_std inside [log_std_min, log_std_max].
@@ -166,7 +169,7 @@ class SAC(nn.Module):
     self.num_train_steps = 1_000_000
     self.num_seed_steps = 4000
     self.num_eval_episodes = 5
-    self.eval_frequency = 20_000
+    self.eval_frequency = 10_000
     self.checkpoint_frequency = 20_000
     self.log_frequency = 1_000
     self.batch_size = 256
@@ -185,10 +188,11 @@ class SAC(nn.Module):
     self.learnable_temperature = True
     self.discount = 0.99
     # env things
-    self.obs_dim = self.env.observation_spec()['embeddings'].shape[-1]*3
-    self.action_dim = self.env.action_spec().shape[0]
-    self.action_range = [float(env.action_spec().minimum.min()),
-      float(env.action_spec().maximum.max()),]
+    self.emb_dim = self.env.observation_space['embeddings'].shape[-1]*3
+    self.state_dim = self.env.observation_space['state'].shape[-1]*3
+    self.action_dim = self.env.action_space.shape[0]
+    self.action_range = [float(env.action_space.low.min()),
+      float(env.action_space.high.max()),]
     # Actor
     self.actor_update_frequency = 1
     self.actor_lr = self.lr
@@ -208,13 +212,13 @@ class SAC(nn.Module):
 
 
     # Initialise Critics and actor
-    self.critic = MultiCritic(self.obs_dim, self.feature_dim, self.action_dim,
+    self.critic = MultiCritic(self.emb_dim, self.feature_dim, self.state_dim,  self.action_dim,
                                self.hidden_dim, self.hidden_depth).to(self.device)
-    self.critic_target = MultiCritic(self.obs_dim, self.feature_dim, self.action_dim,
+    self.critic_target = MultiCritic(self.emb_dim, self.feature_dim, self.state_dim,  self.action_dim,
                                self.hidden_dim, self.hidden_depth).to(self.device)
     self.critic_target.load_state_dict(self.critic.state_dict())
     
-    self.actor = DiagGaussianActor(self.obs_dim, self.feature_dim, self.action_dim,
+    self.actor = DiagGaussianActor(self.emb_dim, self.feature_dim, self.state_dim, self.action_dim,
                                     self.hidden_dim, self.hidden_depth, self.log_std_bounds).to(self.device)
 
 
@@ -259,32 +263,35 @@ class SAC(nn.Module):
     return self.log_alpha.exp()
 
   @torch.no_grad()
-  def act(self, obs, sample = False):
-    obs = torch.as_tensor(obs, device=self.device)
-    dist = self.actor(obs.unsqueeze(0))
+  def act(self, emb, state, sample = False):
+    emb = torch.as_tensor(emb, device=self.device)
+    state = torch.as_tensor(state, device=self.device)
+    dist = self.actor(emb, state)
     action = dist.sample() if sample else dist.mean
     action = action.clamp(*self.action_range)
-    return action.cpu().numpy()[0]
+    return action.cpu().numpy()
 
   def update_critic(
       self,
-      obs,
+      emb,
+      state,
       action,
       reward,
-      next_obs,
+      next_emb,
+      next_state,
       mask,
   ):
     with torch.no_grad():
-      dist = self.actor(next_obs)
+      dist = self.actor(next_emb, next_state)
       next_action = dist.rsample()
       log_prob = dist.log_prob(next_action).sum(-1, keepdim=True)
-      target_q1, target_q2 = self.critic_target(next_obs, next_action)
+      target_q1, target_q2 = self.critic_target(next_emb, next_state, next_action)
       target_v = (
           torch.min(target_q1, target_q2) - self.alpha.detach() * log_prob)
       target_q = reward + (mask * self.discount * target_v)
 
     # Get current Q estimates.
-    current_q1, current_q2 = self.critic(obs, action)
+    current_q1, current_q2 = self.critic(emb, state, action)
     critic_loss = F.mse_loss(current_q1, target_q) + F.mse_loss(
         current_q2, target_q)
 
@@ -297,12 +304,13 @@ class SAC(nn.Module):
 
   def update_actor_and_alpha(
       self,
-      obs,
+      emb,
+      state,
   ):
-    dist = self.actor(obs)
+    dist = self.actor(emb, state)
     action = dist.rsample()
     log_prob = dist.log_prob(action).sum(-1, keepdim=True)
-    actor_q1, actor_q2 = self.critic(obs, action)
+    actor_q1, actor_q2 = self.critic(emb, state, action)
 
     actor_q = torch.min(actor_q1, actor_q2)
     actor_loss = (self.alpha.detach() * log_prob - actor_q).mean()
@@ -342,15 +350,16 @@ class SAC(nn.Module):
 
     if step % self.critic_update_frequency == 0:
       for i in range(self.utd):
-        obs, action, reward, next_obs, mask = replay_buffer.sample(self.batch_size)
-        critic_info = self.update_critic(obs, action, reward, next_obs, mask)
+        embs, states, action, reward, next_embs, next_states, mask = replay_buffer.sample(self.batch_size)
+        critic_info = self.update_critic(embs, states, action, reward, next_embs, next_states, mask)
+        actor_info, alpha_info = self.update_actor_and_alpha(embs, states)
         if i % self.critic_target_update_frequency == 0:
           soft_update_params(self.critic, self.critic_target, self.critic_tau)
       batch_info = {"batch_reward": reward.mean()}
 
-    if step % self.actor_update_frequency == 0:
-      obs, action, reward, next_obs, mask = replay_buffer.sample(self.batch_size)
-      actor_info, alpha_info = self.update_actor_and_alpha(obs)
+    # if step % self.actor_update_frequency == 0:
+    #   embs, states, action, reward, next_embs, next_states, mask = replay_buffer.sample(self.batch_size)
+    #   actor_info, alpha_info = self.update_actor_and_alpha(embs, states)
 
     return {**batch_info, **critic_info, **actor_info, **alpha_info}
 
